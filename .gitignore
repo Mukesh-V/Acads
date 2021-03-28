@@ -1,2 +1,3 @@
+.vscode
 FinEco/__pycache__
-PSC/*.out
+*.out
