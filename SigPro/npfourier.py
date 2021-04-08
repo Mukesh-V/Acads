@@ -17,7 +17,7 @@ def complexIntegrate(func, a, b, **kwargs):
     imag_integral = quad(imag_func, a, b, **kwargs)
     return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
 
-class Fourier:
+class NPFourier:
     def __init__(self, props):
         self.amp  = props['amp']
         self.time = props['time']
