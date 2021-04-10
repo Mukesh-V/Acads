@@ -10,7 +10,7 @@ class Fourier:
         self.time = props['time']
         self.phi  = props['phi']
         self.freq = props['freq']        
-        self.tpd  = int(1 / self.freq)
+        self.tpd  = props['tpd']
 
     def freqx(self, x):
         return 2 * pi * self.freq * x + self.phi
@@ -46,6 +46,7 @@ class Fourier:
     
     def getIndivFourier(self, n):
         t = sp.Symbol('t')
+        print(n)
         expr = sp.integrate(self.f * sp.exp(-sp.I * 2 * n * sp.pi * t/self.tpd), (t, 0, self.tpd)) / self.tpd
         return sp.N(expr)
 
