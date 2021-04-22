@@ -1,3 +1,4 @@
+
 import numpy as np
 import scipy as sp
 
@@ -17,7 +18,7 @@ def complexIntegrate(func, a, b, **kwargs):
     imag_integral = quad(imag_func, a, b, **kwargs)
     return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
 
-class NPFourier:
+class FourierSeries:
     def __init__(self, props):
         self.amp  = props['amp']
         self.time = props['time']
@@ -81,7 +82,6 @@ class NPFourier:
         print('LHS :', lhs)
         print('RHS :', rhs)
 
-
 if __name__ == "__main__":
     props = {
         "amp"  : 1,
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         "time" : 4,
         "freq" : 0.5
     }
-    obj = Fourier(props)
+    obj = FourierSeries(props)
     obj.triangle()
     obj.getNFouriers(8)
     obj.plot()
