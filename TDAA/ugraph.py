@@ -16,13 +16,12 @@ class UndirectedGraph:
     def printGraph(self):
         for vertex in self.edges.keys():
             print(vertex, self.edges[vertex])
-
-    def removeEdge(self, a, b):
-        try:
-            self.edges[a].remove(b)
-            self.edges[b].remove(a)
-        except:
-            print('Error')
+    
+    def clearVertex(self, key):
+        del self.edges[key]
+        for vertex in self.edges.keys():
+            if key in self.edges[vertex]:
+                self.edges[vertex].remove(key)
 
     def edgesExist(self):
         flag = False

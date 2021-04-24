@@ -13,7 +13,7 @@ graph.printGraph()
 print('')
 
 vertices = list(graph.edges.keys())
-vertex_cover = set({})
+vertex_cover = []
 
 while(graph.edgesExist()):
     i1 = random.randint(0, len(vertices)-1)
@@ -23,11 +23,10 @@ while(graph.edgesExist()):
     i2 = random.randint(0, len(graph.edges[v1])-1)
     v2 = graph.edges[v1][i2]
 
-    vertex_cover.add(v1)
-    vertex_cover.add(v2)
-    for v1i in v1set:
-        graph.removeEdge(v1, v1i)
-    for v2i in v2set:
-        graph.removeEdge(v2, v2i)
+    vertex_cover.append((v1, v2))
 
-print(sorted(list(vertex_cover)))
+    graph.clearVertex(v1)
+    graph.clearVertex(v2)
+    vertices = list(graph.edges.keys())
+
+print(vertex_cover)
