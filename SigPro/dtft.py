@@ -1,12 +1,25 @@
 import numpy as np
+import scipy as sp
+
 import matplotlib.pyplot as plt
+from scipy.integrate import quad
 
 pi = np.pi
 
-class DiscreteFourierTransform:
+# copied from StackOverflow
+# https://stackoverflow.com/a/5966088/11607707
+def complexIntegrate(func, a, b, **kwargs):
+    def real_func(x):
+        return sp.real(func(x))
+    def imag_func(x):
+        return sp.imag(func(x))
+    real_integral = quad(real_func, a, b, **kwargs)
+    imag_integral = quad(imag_func, a, b, **kwargs)
+    return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
+
+class DiscreteTimeFourierTransform:
     def __init__(self, props):
         self.amp  = props['amp']
-        self.time = props['time']
         self.phi  = props['phi']
         self.freq = props['freq']        
         self.tpd  = 1 / self.freq
@@ -31,41 +44,33 @@ class DiscreteFourierTransform:
         self.f = lambda x : 0 if x%1/(2*self.freq) != 0 or x == 0 else 100 * self.amp
     
     def setDataPoints(self):
-        self.xpts = np.linspace(0, self.time, self.N, endpoint=False)
+        self.xpts = np.linspace(-self.N, self.N, 1000)
         self.datapoints = [self.f(x) for x in self.xpts]
     
-    def getIndivFourier(self, n):
+    def getIndivFourier(self, w):
         coeff = 0.0
-        for k in range(self.N):
-            coeff += self.datapoints[k] * np.exp(-1j * 2 * pi * k * n / self.N)
+        for index, n in enumerate(self.xpts):
+            coeff += self.datapoints[index] * np.exp(-1j * w * n)
         return coeff
     
-    def getNFouriers(self):
-        self.coeffs = [ self.getIndivFourier(k) for k in range(self.N) ]
-        return self.coeffs
-    
-    def reconstruct(self, k):
-        y = 0.0
-        for n in range(self.N):
-            y += self.coeffs[n] * np.exp(1j * 2 * pi * k * n / self.N)
-        return y/self.N
+    def reconstruct(self, n):
+        integrand = lambda w : self.getIndivFourier(w) * np.exp(1j * w * n)
+        return complexIntegrate(integrand, -pi, pi)[0]
 
     def plot(self):
-        actual_xpts = np.linspace(0, self.time, 100, endpoint=False)
-        plt.plot(actual_xpts, [ self.f(x) for x in actual_xpts])
-        plt.plot(self.xpts, [abs(self.reconstruct(n)) for n in range(self.N)])
+        plt.plot(self.xpts, self.datapoints)
+        # print([abs(self.reconstruct(n))/(2*pi) for n in self.xpts])
+        # plt.plot(self.xpts, [abs(self.reconstruct(n))/(2*pi) for n in self.xpts])
         plt.show()
 
 if __name__ == "__main__":
     props = {
         "amp"  : 1,
         "phi"  : 0,
-        "time" : 2,
         "freq" : 1,
-        "N"    : 10
+        "N"    : 8
     }
-    obj = DiscreteFourierTransform(props)
-    obj.rectifiedSine()
+    obj = DiscreteTimeFourierTransform(props)
+    obj.triangle()
     obj.setDataPoints()
-    obj.getNFouriers()
     obj.plot()
