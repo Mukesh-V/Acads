@@ -9,10 +9,10 @@ print(sr)
 props = { 'N' : sr }
 obj = DiscreteFourierTransformQuiz(props)
 
-obj.setDataPoints(data[sr*2: sr*3+1])
+obj.setDataPoints(data[sr*6: sr*7+1])
 obj.setNFouriers()
 obj.plotFourier()
 
-obj.setDataPoints(data[sr*3: sr*4+1])
+obj.setDataPoints(data[sr*7: sr*8+1])
 obj.setNFouriers()
 obj.plotFourier()
