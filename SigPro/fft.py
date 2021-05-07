@@ -1,9 +1,12 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
+sys.setrecursionlimit(10**6)
+
 pi = np.pi
 
-class DiscreteFourierTransform:
+class FastFourierTransform:
     def __init__(self, props):
         self.amp  = props['amp']
         self.time = props['time']
@@ -32,28 +35,40 @@ class DiscreteFourierTransform:
     
     def setDataPoints(self):
         self.xpts = np.linspace(0, self.time, self.N, endpoint=False)
-        self.datapoints = [self.f(x) for x in self.xpts]
+        self.datapoints = np.array([self.f(x) for x in self.xpts])
     
-    def getIndivFourier(self, n):
-        coeff = 0.0
-        for k in range(self.N):
-            coeff += self.datapoints[k] * np.exp(-1j * 2 * pi * k * n / self.N)
-        return coeff
+    def getIndivFourier(self, segment):
+        N = segment.shape[0]
+        n = np.arange(N)
+        k = n.reshape((N, 1))
+        M = np.exp(-2j * np.pi * k * n / N)
+        return np.dot(M, segment)
     
-    def getNFouriers(self):
-        self.coeffs = [ self.getIndivFourier(k) for k in range(self.N) ]
-        return self.coeffs
+    def getNFouriers(self, segment=[], save=True):
+        if segment == []:
+            segment = self.datapoints
+        N = segment.shape[0]
+        if N <= 2:
+            return self.getIndivFourier(segment)
+        even_half = self.getNFouriers(segment[::2], save=False)
+        odd_half = self.getNFouriers(segment[1::2], save=False)
+
+        weights = np.exp( -2j * pi * np.arange(N) / N )
+        concat =  np.concatenate([even_half + weights[: N//2] * odd_half, even_half + weights[N//2 :] * odd_half])
+        if save:
+            self.coeffs = concat
+        return concat
     
-    def reconstruct(self, k):
-        y = 0.0
-        for n in range(self.N):
-            y += self.coeffs[n] * np.exp(1j * 2 * pi * k * n / self.N)
-        return y/self.N
+    def reconstruct(self):
+        segment = np.array([0+0j])
+        segment[0] = self.coeffs[0]
+        segment = np.concatenate([segment, np.flip(self.coeffs[1:])])
+        inverse = self.getNFouriers(np.array(segment), save=False)
+        return inverse/self.N
 
     def plot(self):
         actual_xpts = np.linspace(0, self.time, 100, endpoint=False)
-        plt.plot(actual_xpts, [ self.f(x) for x in actual_xpts])
-        plt.plot(self.xpts, [abs(self.reconstruct(n)) for n in range(self.N)])
+        plt.plot(self.xpts, [abs(x) for x in self.reconstruct()])
         plt.show()
 
 if __name__ == "__main__":
@@ -62,9 +77,9 @@ if __name__ == "__main__":
         "phi"  : 0,
         "time" : 2,
         "freq" : 1,
-        "N"    : 16
+        "N"    : 128
     }
-    obj = DiscreteFourierTransform(props)
+    obj = FastFourierTransform(props)
     obj.rectifiedSine()
     obj.setDataPoints()
     obj.getNFouriers()
