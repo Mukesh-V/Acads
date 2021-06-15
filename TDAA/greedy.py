@@ -1,49 +1,61 @@
+import os
+import csv
+import copy
+import time
+
 from ugraph import UndirectedGraph
 import random
 
-graph = UndirectedGraph()
-'''
-  a--c--e
-  |  |  |
-  b--d--f
-'''
-graph.addEdge('a', 'b')
-graph.addEdge('a', 'c')
-graph.addEdge('b', 'd')
-graph.addEdge('c', 'd')
-graph.addEdge('c', 'e')
-graph.addEdge('d', 'f')
-graph.addEdge('e', 'f')
+def GreedyVC(graph):
+  vertices = sorted(list(graph.vertices))
+  n = len(vertices)
+  vertex_cover = set({})
 
-'''
-  1---2---3
-  |   | / | \
-  |   |/  |  \
-  4   5---6---7  
-'''
-# graph.addEdge(1, 2)
-# graph.addEdge(1, 4)
-# graph.addEdge(2, 3)
-# graph.addEdge(2, 5)
-# graph.addEdge(3, 5)
-# graph.addEdge(3, 6)
-# graph.addEdge(3, 7)
-# graph.addEdge(5, 6)
+  '''
+  Greedy :
+    vertex_cover = []
+    WHILE graph has edges:
+      DO
+        1. select an edge randomly from the graph
+        2. remove all the edges incident on either of the endpoints
+        3. append the selected endpoints to vertex_cover
+    RETURN vertex_cover
+  '''
+  start = time.time()
+  while(graph.edgesExist()):
+      # We "select" an edge by randomly selecting a vertex and another from its neighbourhood. 
+      i1 = random.randint(0, len(vertices)-1)
+      v1 = vertices[i1]
+      i2 = random.randint(0, len(graph.edges[v1])-1)
+      v2 = graph.edges[v1][i2]
 
-vertices = sorted(list(graph.vertices))
-vertex_cover = set({})
+      vertex_cover.add(v1)
+      vertex_cover.add(v2)
 
-while(graph.edgesExist()):
-    i1 = random.randint(0, len(vertices)-1)
-    v1 = vertices[i1]
-    i2 = random.randint(0, len(graph.edges[v1])-1)
-    v2 = graph.edges[v1][i2]
+      graph.clearVertex(v1)
+      graph.clearVertex(v2)
+      vertices = sorted(list(graph.vertices))
+  end = time.time()
+  
+  vc = len(vertex_cover)
+  time_taken = end - start
+  print('n :', n)
+  print('Vertex cover :', vc)
+  print('Time taken :', time_taken)
+  print('')
 
-    vertex_cover.add(v1)
-    vertex_cover.add(v2)
+  with open('greedy.csv', 'a') as file:
+    writer = csv.writer(file)
+    writer.writerow([n, vc, time_taken])
 
-    graph.clearVertex(v1)
-    graph.clearVertex(v2)
-    vertices = sorted(list(graph.vertices))
+# Driver code
+# Remove the file, in case it exists
+try:
+  os.remove('greedy.csv')
+except:
+  pass
 
-print(sorted(list(vertex_cover)))
+for n in range(50, 2001, 50):
+    graph = UndirectedGraph()
+    graph.randomAddEdges(n)
+    GreedyVC(graph)
