@@ -14,31 +14,32 @@ class Event:
     def __repr__(self):
         return str(vars(self))
 
-def protocol(id, state, receipt):
+def protocol(id, mode, state, receipt):
     selfparent = None
     while True:
         if not state[id] or receipt[id]:
             time.sleep(random.random())
-            state[id].append(Event(receipt[id][0], selfparent, int(time.time())))
-            selfparent = state[id][-1].id
-            receipt[id].pop(0)
-            while True:
-                recipient = random.randint(0, n-1)
-                if recipient != id:
-                    break
-            receipt[recipient].append(selfparent)
+            if mode == 'vanilla':
+                state[id].append(Event(receipt[id][0], selfparent, int(time.time())))
+                selfparent = state[id][-1].id
+                receipt[id].pop(0)
+                while True:
+                    recipient = random.randint(0, n-1)
+                    if recipient != id:
+                        break
+                receipt[recipient].append(selfparent)
         
         time.sleep(1)
         if sum([len(state[x]) for x in range(n)]) > m:
             return
 
-def hashgraph():
+def hashgraph(mode):
     state, receipt = {}, {}
     threads = []
     for i in range(n):
         receipt[i] = [None] 
         state[i] = []
-        x = threading.Thread(target=protocol, args=(i, state, receipt))
+        x = threading.Thread(target=protocol, args=(i, mode, state, receipt))
         threads.append(x)
         x.start()
 
@@ -47,7 +48,7 @@ def hashgraph():
 
     return state
 
-def dotgraph(data):
+def dotgraph(data, type):
     graph = "digraph G { \n\trankdir=LR \n\tnewrank=true \n "
 
     first_events = []
@@ -62,7 +63,7 @@ def dotgraph(data):
         events += "\n\t}\n"
         graph += events 
 
-    graph += "\t{rank=same; " + ",".join([str(x) for x in first_events]) + "}\n"
+    graph += "\t{rank=same; " + ";".join([str(x) for x in first_events]) + "}\n"
 
     for node in data.keys():
         events = "\t"
@@ -72,8 +73,14 @@ def dotgraph(data):
 
         graph += events + "\n"
     graph += "}"
-    print(graph)
+        
+    with open("op_{graphtype}.dot".format(graphtype=type), 'w') as file:
+        file.write(graph)
+
+    dotgraph = pydot.graph_from_dot_data(graph)[0]
+    dotgraph.write_png("op_{graphtype}.png".format(graphtype=type))
 
 n, m = 5, 15
-graph = hashgraph()
-dotgraph(graph)
+mode = "vanilla"
+graph = hashgraph(mode)
+dotgraph(graph, mode)
