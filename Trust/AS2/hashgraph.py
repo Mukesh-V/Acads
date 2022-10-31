@@ -48,7 +48,7 @@ def hashgraph():
     return state
 
 def dotgraph(data):
-    graph = "digraph G { \n\trankdir=LR \n "
+    graph = "digraph G { \n\trankdir=LR \n\tnewrank=true \n "
 
     first_events = []
     for node in data.keys():
@@ -74,6 +74,6 @@ def dotgraph(data):
     graph += "}"
     print(graph)
 
-n, m = 3, 6
+n, m = 5, 15
 graph = hashgraph()
 dotgraph(graph)
