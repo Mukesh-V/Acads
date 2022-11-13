@@ -10,6 +10,7 @@ parser.add_argument("-n", "--nodes", help="Number of nodes")
 parser.add_argument("-m", "--events", help="Number of events")
 parser.add_argument("-mo", "--mode", help="Mode of protocol - vanilla/isolate/partition")
 parser.add_argument("-iid", "--iid", help="ID of node to isolate")
+parser.add_argument("-mid", "--mid", help="ID of malicious node")
 parser.add_argument("-st", "--start", help="Start time of special effects as Integer")
 parser.add_argument("-pd", "--period", help="Period of special effects as Integer")
 args = parser.parse_args()
@@ -38,29 +39,41 @@ def protocol(id, state, receipt):
 
             selfparent, recipient = state[id][-1].id, None
             receipt[id].pop(0)
-            while True:
-                recipient = random.randint(0, n-1)
+            if mode != 'fork' or id != malicious_id:
+                while True:
+                    recipient = random.randint(0, n-1)
 
-                if mode == 'vanilla':
-                    if recipient != id:
-                        break
-
-                elif mode == 'isolate':
-                    if id != isolated_id or not (starting_timestamp <= event.timestamp <= ending_timestamp):
+                    if mode == 'vanilla' or (mode == 'fork' and id != malicious_id):
                         if recipient != id:
-                            if recipient != isolated_id or not (starting_timestamp <= event.timestamp <= ending_timestamp):
-                                break
-                    else:
-                        recipient = None 
-                        break
+                            break
 
-                elif mode == 'partition':
-                    if recipient != id:
-                        if starting_timestamp <= event.timestamp <= ending_timestamp:
-                            if  recipient%2 == id%2:  break
-                        else: break
+                    elif mode == 'isolate':
+                        if id != isolated_id or not (starting_timestamp <= event.timestamp <= ending_timestamp):
+                            if recipient != id:
+                                if recipient != isolated_id or not (starting_timestamp <= event.timestamp <= ending_timestamp):
+                                    break
+                        else:
+                            recipient = None 
+                            break
 
-            if not recipient == None:   receipt[recipient].append(selfparent)
+                    elif mode == 'partition':
+                        if recipient != id:
+                            if starting_timestamp <= event.timestamp <= ending_timestamp:
+                                if  recipient%2 == id%2:  break
+                            else: break
+
+                if not recipient == None:   receipt[recipient].append(selfparent)
+            else:
+                recipient1, recipient2 = None, None
+                while True: 
+                    recipient1 = random.randint(0, n-1)
+                    if recipient1 != id: break
+                while True:
+                    recipient2 = random.randint(0, n-1)
+                    if recipient2 != id and recipient2 != recipient1: break
+
+                receipt[recipient1].append(selfparent)
+                receipt[recipient2].append(selfparent)
         
         time.sleep(1)
         if sum([len(state[x]) for x in range(n)]) > m:
@@ -116,6 +129,7 @@ def dotgraph():
 n, m, mode, ordered = int(args.nodes), int(args.events), args.mode, []
 global_start = int(time.time())
 isolated_id = int(args.iid) if args.iid else None
+malicious_id = int(args.mid) if args.mid else None
 if args.start and args.period:
     starting_timestamp = int(args.start)
     ending_timestamp = starting_timestamp + int(args.period)
