@@ -19,7 +19,7 @@ class Event:
         self.id = random.randint(pow(10, 3), pow(10, 4))
         self.parent = parent
         self.selfparent = selfparent
-        self.timestamp = timestamp
+        self.timestamp = timestamp % global_start
     
     def __repr__(self):
         return str(vars(self))
@@ -39,19 +39,26 @@ def protocol(id, state, receipt):
             selfparent, recipient = state[id][-1].id, None
             receipt[id].pop(0)
             while True:
+                recipient = random.randint(0, n-1)
 
                 if mode == 'vanilla':
-                    recipient = random.randint(0, n-1)
                     if recipient != id:
                         break
 
                 elif mode == 'isolate':
-                    if not id == isolated_id or (id == isolated_id and (ending_timestamp < event.timestamp or event.timestamp < starting_timestamp)):
-                        recipient = random.randint(0, n-1)
+                    if id != isolated_id or not (starting_timestamp <= event.timestamp <= ending_timestamp):
                         if recipient != id:
-                            if recipient != isolated_id or (recipient == isolated_id and (ending_timestamp < event.timestamp or event.timestamp < starting_timestamp)):
+                            if recipient != isolated_id or not (starting_timestamp <= event.timestamp <= ending_timestamp):
                                 break
-                    else: break
+                    else:
+                        recipient = None 
+                        break
+
+                elif mode == 'partition':
+                    if recipient != id:
+                        if starting_timestamp <= event.timestamp <= ending_timestamp:
+                            if  recipient%2 == id%2:  break
+                        else: break
 
             if not recipient == None:   receipt[recipient].append(selfparent)
         
@@ -107,14 +114,14 @@ def dotgraph():
     dotgraph.write_png("op_{graphtype}.png".format(graphtype=mode))
 
 n, m, mode, ordered = int(args.nodes), int(args.events), args.mode, []
-isolated_id = int(args.iid)
+global_start = int(time.time())
+isolated_id = int(args.iid) if args.iid else None
 if args.start and args.period:
-    starting_timestamp = int(time.time()) + int(args.start)
+    starting_timestamp = int(args.start)
     ending_timestamp = starting_timestamp + int(args.period)
-    
+
 state = hashgraph()
 dotgraph()
-
 with open("op_{graphtype}.txt".format(graphtype=mode), "w") as file:
     file.write("{num}\n".format(num=n))
     file.write("\n".join([" ".join([str(item) for item in x]) for x in ordered]))
