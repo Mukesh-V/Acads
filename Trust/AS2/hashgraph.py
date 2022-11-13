@@ -1,12 +1,22 @@
 import threading 
 import time
 import random
+import argparse
 
 import pydot
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-n", "--nodes", help="Number of nodes")
+parser.add_argument("-m", "--events", help="Number of events")
+parser.add_argument("-mo", "--mode", help="Mode of protocol - vanilla/isolate/partition")
+parser.add_argument("-iid", "--iid", help="ID of node to isolate")
+parser.add_argument("-st", "--start", help="Start time of special effects as Integer")
+parser.add_argument("-pd", "--period", help="Period of special effects as Integer")
+args = parser.parse_args()
+
 class Event:
     def __init__(self, parent=None, selfparent=None, timestamp=None):
-        self.id = random.randint(pow(10, 6), pow(10, 7))
+        self.id = random.randint(pow(10, 3), pow(10, 4))
         self.parent = parent
         self.selfparent = selfparent
         self.timestamp = timestamp
@@ -14,32 +24,48 @@ class Event:
     def __repr__(self):
         return str(vars(self))
 
-def protocol(id, mode, state, receipt):
+def protocol(id, state, receipt):
     selfparent = None
     while True:
         if not state[id] or receipt[id]:
             time.sleep(random.random())
-            if mode == 'vanilla':
-                state[id].append(Event(receipt[id][0], selfparent, int(time.time())))
-                selfparent = state[id][-1].id
-                receipt[id].pop(0)
-                while True:
+            event = Event(receipt[id][0], selfparent, int(time.time()))
+            state[id].append(event)
+
+            op_parent = event.parent if event.parent else "NULL"
+            op_selfparent = event.selfparent if event.selfparent else "NULL"
+            ordered.append([id, event.id, op_parent, op_selfparent, event.timestamp])
+
+            selfparent, recipient = state[id][-1].id, None
+            receipt[id].pop(0)
+            while True:
+
+                if mode == 'vanilla':
                     recipient = random.randint(0, n-1)
                     if recipient != id:
                         break
-                receipt[recipient].append(selfparent)
+
+                elif mode == 'isolate':
+                    if not id == isolated_id or (id == isolated_id and (ending_timestamp < event.timestamp or event.timestamp < starting_timestamp)):
+                        recipient = random.randint(0, n-1)
+                        if recipient != id:
+                            if recipient != isolated_id or (recipient == isolated_id and (ending_timestamp < event.timestamp or event.timestamp < starting_timestamp)):
+                                break
+                    else: break
+
+            if not recipient == None:   receipt[recipient].append(selfparent)
         
         time.sleep(1)
         if sum([len(state[x]) for x in range(n)]) > m:
             return
 
-def hashgraph(mode):
+def hashgraph():
     state, receipt = {}, {}
     threads = []
     for i in range(n):
         receipt[i] = [None] 
         state[i] = []
-        x = threading.Thread(target=protocol, args=(i, mode, state, receipt))
+        x = threading.Thread(target=protocol, args=(i, state, receipt))
         threads.append(x)
         x.start()
 
@@ -48,39 +74,48 @@ def hashgraph(mode):
 
     return state
 
-def dotgraph(data, type):
+def dotgraph():
     graph = "digraph G { \n\trankdir=LR \n\tnewrank=true \n "
 
     first_events = []
-    for node in data.keys():
+    for node in state.keys():
         graph += "\tsubgraph cluster" + str(node)
         graph += "{ \n \t\t"
 
-        first_events.append(data[node][0].id)
+        first_events.append(state[node][0].id)
         events = ""
-        for i in range(len(data[node])-1):
-            events += str(data[node][i].id) + " -> " + str(data[node][i+1].id) + " [minlen=" + str(data[node][i+1].timestamp - data[node][i].timestamp) + "] "
+        for i in range(len(state[node])-1):
+            events += str(state[node][i].id) + " -> " + str(state[node][i+1].id) + " [minlen=" + str(state[node][i+1].timestamp - state[node][i].timestamp) + "] "
         events += "\n\t}\n"
         graph += events 
 
     graph += "\t{rank=same; " + ";".join([str(x) for x in first_events]) + "}\n"
 
-    for node in data.keys():
+    for node in state.keys():
         events = "\t"
-        for event in data[node]:
+        for event in state[node]:
             if event.parent:
                 events += str(event.parent) + " -> " + str(event.id) + " "
 
         graph += events + "\n"
     graph += "}"
         
-    with open("op_{graphtype}.dot".format(graphtype=type), 'w') as file:
+    with open("op_{graphtype}.dot".format(graphtype=mode), 'w') as file:
         file.write(graph)
 
     dotgraph = pydot.graph_from_dot_data(graph)[0]
-    dotgraph.write_png("op_{graphtype}.png".format(graphtype=type))
+    dotgraph.write_png("op_{graphtype}.png".format(graphtype=mode))
 
-n, m = 5, 15
-mode = "vanilla"
-graph = hashgraph(mode)
-dotgraph(graph, mode)
+n, m, mode, ordered = int(args.nodes), int(args.events), args.mode, []
+isolated_id = int(args.iid)
+if args.start and args.period:
+    starting_timestamp = int(time.time()) + int(args.start)
+    ending_timestamp = starting_timestamp + int(args.period)
+    
+state = hashgraph()
+dotgraph()
+
+with open("op_{graphtype}.txt".format(graphtype=mode), "w") as file:
+    file.write("{num}\n".format(num=n))
+    file.write("\n".join([" ".join([str(item) for item in x]) for x in ordered]))
+    file.write("\nDone")
