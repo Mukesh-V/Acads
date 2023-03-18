@@ -6,3 +6,9 @@ def sigmoid(z):
 def softmax(z):
     ez = np.exp(z - np.max(z))
     return ez/ez.sum()
+
+def tanh(z):
+    return np.tanh(z)
+
+def relu(z):
+    return np.maximum(0, z)
