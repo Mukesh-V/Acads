@@ -11,23 +11,24 @@ def init(m, n, mode=None):
         return np.zeros((m, n))
     
 def nn_init(sizes, mode='dense', imode='random'):
-    Wb, grads, updates = [[], []], [[], []], [[], []]
+    Wb, grads, history = [[], []], [[], []], [[], []]
     if mode == 'dense':
         for i in range(len(sizes)-1):
-            Wb[0].append(init(sizes[i], sizes[i+1], imode))
-            Wb[1].append(init(sizes[i], 1, imode))
+            Wb[0].append(init(sizes[i+1], sizes[i], imode))
+            Wb[1].append(init(sizes[i+1], 1, imode))
 
-            grads[0].append(init(sizes[i], sizes[i+1]))
-            grads[1].append(init(sizes[i], 1))
+            grads[0].append(init(sizes[i+1], sizes[i]))
+            grads[1].append(init(sizes[i+1], 1))
 
-            updates[0].append(init(sizes[i], sizes[i+1]))
-            updates[1].append(init(sizes[i], 1))
+            history[0].append(init(sizes[i+1], sizes[i]))
+            history[1].append(init(sizes[i+1], 1))
 
-    return Wb, grads, updates
+    return Wb, grads, history
     
 def forward(W, H, b, activation, mode='linear'):
     z = None
     if mode == 'linear':
+        W = np.asarray(W)
         H = np.reshape(H, (H.shape[0], -1))
         z = np.dot(W, H) + b
     return globals()[activation](z), z
@@ -35,7 +36,6 @@ def forward(W, H, b, activation, mode='linear'):
 def forward_propagation(X, Wb, activation):
     H = X
     Hs, As = [], [H]
-    L = len(Wb[0]) - 1
     for i in range(len(Wb[0])):
         Hi = H
         if i == len(Wb[0])-1: activation = 'softmax'
@@ -56,7 +56,7 @@ def backpropagation(Wb, y_hat, y, activation, decay, loss, Hs, As):
     L = len(Wb[0])
     nc, ny = y_hat
     y_ohe = []
-    for i in range(nc):
+    for i in range(ny):
         y_ohe.append(one_hot(y[i], nc))
     y_ohe = np.reshape(y_ohe, (nc, ny))
 
