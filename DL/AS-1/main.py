@@ -28,10 +28,10 @@ labels = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat', 'Sandal', 'Shir
 ntrain = X_train.shape[1]
 nval = X_val.shape[1]
 
-def train(hparams):  
+def train(experiment, hparams):  
   # wandb.init(project="FundDL-AS1", config=hparams)
   # config = wandb.config
-  # wandb.run.name = "{}_hl{}_bs_{}_ac_{}".format(config.loss, ", ".join(map(str, config.nn)), config.batch, config.activation)
+  # wandb.run.name = "{}_hl{}_bs_{}_ac_{}".format(experiment, config.loss, ", ".join(map(str, config.nn)), config.batch, config.activation)
   beta1 = 0.9
   beta2 = 0.999
   e = 1e-8
@@ -40,6 +40,7 @@ def train(hparams):
   config['nn'].insert(0, X_train.shape[0])
   config['nn'].append(10)
   Wb, history, grads = nn_init(config['nn'], imode='xavier')
+  v = history.copy()
 
   correct_ones = 0
   for i in range(config['epoch']):
@@ -49,23 +50,61 @@ def train(hparams):
       X = np.reshape(X_train[:, j], (-1, 1))
       Y, Hs, As = forward_propagation(X, Wb, config['activation'])
       if y_train[j] == np.argmax(Y): correct_ones += 1
-      if not (j+1) % config['batch']:
-        grads_point = backpropagation(Wb, Y, [y_train[j]], config['activation'], config['decay'], config['loss'],Hs, As)
+      grads_point = backpropagation(Wb, Y, [y_train[j]], config['activation'], config['decay'], config['loss'], Hs, As)
+      if config['optimizer'] == 'sgd':
+        Wb = gd(Wb, grads_point, config['eta'])
+      else:
         for k in range(2):
             for l in range(len(Wb[0])):
-                grads[k][l] = grads[k][l] + grads_point[k][l]
-        # if config['optimizer'] == 'nadam':
-        #   Wb_ahead, update = nadam(Wb, grads_epoch, config['eta'], eta, history, v)
+                grads[k][l] += grads_point[k][l]
+        if not (j+1) % config['batch']:
+          for k in range(2):
+            for l in range(len(Wb[0])):
+              grads[k][l] /= config['batch'] 
+          
+          if config['optimizer'] == 'momentum':
+            Wb, history = momentum(Wb, grads, config['eta'], gamma, history)
+          elif config['optimizer'] == 'rmsprop':
+            Wb, history = rmsprop(Wb, grads, config['eta'], history, beta1, e)
+          elif config['optimizer'] == 'adam':
+            Wb, history, v = adam(Wb, grads, config['eta'], history, v, beta1, beta2, e, j+1)
+          elif config['optimizer'] == 'nadam':
+            Wb, history, v = nadam(Wb, grads, config['eta'], history, v, beta1, beta2, e, j+1)
+        
+        if config['loss'] == 'cross_entropy':
+          loss -= (1/ntrain) * math.log(Y[y_train[j]])
+        elif config['loss'] == 'mse':
+          loss += (1/ntrain) * (np.argmax(Y) - y_train[j])**2
+
+    y_hat_val, _, _ = forward_propagation(X_val, Wb, config['activation'])
+    count_val = np.sum(np.argmax(y_hat_val, axis = 0)== y_val)
+
+    for j in range(nval):
+      X_v= np.reshape(X_val[:,j], (-1, 1)) 
+      y_hat_val, _, _ = forward_propagation(X_v, Wb, config['activation'])
+
+      if config['loss'] == 'cross_entropy':
+        val_loss = val_loss - (1/nval)*math.log(y_hat_val[int(y_val[j])])
+      elif config['loss'] == 'mse':
+        val_loss = val_loss + (1/nval)*(np.argmax(y_hat_val) - y_val[j])**2
+
+    accuracy = 100*correct_ones/ntrain
+    val_accuracy = 100*count_val/nval
+
+    print("Loss", loss)
+    print("Accuracy",accuracy)
+    print("Validation Loss", val_loss)
+    print("Validation Accuracy", val_accuracy)
 
 fashion_hyperparams = {
     'nn': [128, 64, 32, 16],
-    'decay': 0,
+    'decay': 0.5,
     'optimizer': 'nadam',
     'init': 'xavier',
     'activation': 'relu',
     'batch': 16,
     'eta': 0.001,
-    'epoch': 20,
+    'epoch': 5,
     'loss': 'mse'
 }
-train(fashion_hyperparams)
+train('fashion-mnist', fashion_hyperparams)

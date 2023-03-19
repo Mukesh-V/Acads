@@ -7,7 +7,7 @@ def gd(Wb, grads, eta):
             Wb[i][j] -= eta * grads[i][j]
     return Wb
 
-def momentum(Wb, grads, eta, gamma, history):
+def momentum(Wb, grads, eta, history, gamma):
     L = len(Wb[0])
     for i in range(2):
         for j in range(L):
@@ -25,8 +25,8 @@ def rmsprop(Wb, grads, eta, history, beta, e):
 
 def adam(Wb, grads, eta, m, v, beta1, beta2, e, t):
     L = len(Wb[0])
-    m_hat = [[[] for t in range(L)], [[] for t in range(L)]]
-    v_hat = [[[] for t in range(L)], [[] for t in range(L)]]
+    m_hat = m.copy()
+    v_hat = v.copy()
     for i in range(2):
         for j in range(L):
             m[i][j] = beta1 * m[i][j] + (1-beta1) * grads[i][j]
@@ -35,7 +35,7 @@ def adam(Wb, grads, eta, m, v, beta1, beta2, e, t):
             m_hat[i][j] = m[i][j] / (1-np.power(beta1, t))
             v_hat[i][j] = v[i][j] / (1-np.power(beta2, t))
 
-            Wb[i][j] -= (eta/(np.sqrt(v[i][j]) + e)) * m_hat[i][j]
+            Wb[i][j] -= (eta/(np.sqrt(v_hat[i][j]) + e)) * m_hat[i][j]
     return Wb, m, v
 
 def nadam(Wb, grads, eta, m, v, beta1, beta2, e, t):
@@ -53,5 +53,5 @@ def nadam(Wb, grads, eta, m, v, beta1, beta2, e, t):
 
             m_bar[i][j] = beta1 * m_hat[i][j] + (1-beta1)*grads[i][j]
 
-            Wb[i][j] -= (eta/(np.sqrt(v[i][j]) + e)) * m_bar[i][j]
+            Wb[i][j] -= (eta/np.sqrt(v_hat[i][j] + e)) * m_bar[i][j]
     return Wb, m, v
