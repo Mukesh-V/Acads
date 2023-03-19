@@ -12,6 +12,48 @@ from optimizers import *
 import wandb
 wandb.login()
 
+
+ce_sweep_config = {
+  "name": "Sweep-CE",
+  "method": "grid",
+  "project": "FundDL-AS1",
+  "metric":{
+      "name":"val_accuracy",
+      "goal":"maximize"
+  },
+  "parameters": {
+        "epoch": {
+            "values": [5, 10]
+        },
+        "nn": {
+            "values":[[256, 128, 128, 64], [128, 128, 128, 128], [128, 128, 128, 64, 32]]
+        },
+        "decay":{
+            "values":[0, 0.0005]
+        },
+        "eta":{
+            "values":[0.001, 0.0001]
+        },
+        "batch": {
+            "values":[16, 32]
+        },  
+        "optimizer": {
+            "values":['adam', 'nadam']
+        },
+        "init": {
+            "values":['xavier']
+        },
+        "activation":{
+            "values": ['relu', 'tanh']
+        },
+        "loss":{
+            "values": ['cross_entropy']
+        }
+    }
+}
+
+sweep_id = wandb.sweep(ce_sweep_config)
+
 (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
 
 X_train = np.reshape(X_train,(X_train.shape[0],X_train.shape[1]*X_train.shape[2]))/255.0
@@ -26,11 +68,12 @@ labels = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat', 'Sandal', 'Shir
 ntrain = X_train.shape[1]
 nval = X_val.shape[1]
 
-def train(experiment):  
+experiment = "fashion-mnist"
+def train():  
   wandb.init(project="FundDL-AS1")
   config = wandb.config
   wandb.run.name = "{}_hl{}_bs_{}_ac_{}".format(experiment, config.loss, ", ".join(map(str, config.nn)), config.batch, config.activation)
-  
+
   beta1 = 0.9
   beta2 = 0.999
   e = 1e-8
@@ -105,44 +148,4 @@ def train(experiment):
                         preds=np.argmax(Y_test, axis = 0),
                         class_names=labels)})
 
-sweep_config = {
-  "name": "Sweep-CE",
-  "method": "grid",
-  "project": "FundDL-AS1",
-  "metric":{
-      "name":"val_accuracy",
-      "goal":"maximize"
-  },
-  "parameters": {
-        "epoch": {
-            "values": [5, 10]
-        },
-        "nn": {
-            "values":[[256, 128, 128, 64], [128, 128, 128, 128], [128, 128, 128, 64, 32]]
-        },
-        "decay":{
-            "values":[0, 0.0005]
-        },
-        "eta":{
-            "values":[0.001, 0.0001]
-        },
-        "batch": {
-            "values":[16, 32]
-        },  
-        "optimizer": {
-            "values":['adam', 'nadam']
-        },
-        "init": {
-            "values":['xavier']
-        },
-        "activation":{
-            "values": ['relu', 'tanh']
-        },
-        "loss":{
-            "values": ['cross_entropy']
-        }
-    }
-}
-
-sweep_id = wandb.sweep(sweep_config)
-wandb.agent(sweep_id, function=train('fashion_mnist'), count=5)
+wandb.agent(sweep_id, function=train, count=5)
