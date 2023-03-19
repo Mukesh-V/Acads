@@ -50,7 +50,9 @@ def backward(z, activation='sigmoid'):
     elif activation == 'tanh':
         return 1 - (tanh(z))**2
     else:
-        return [max(0.0, i) for i in z]
+        z[z<=0] = 0
+        z[z>0] = 1
+        return z
     
 def backpropagation(Wb, y_hat, y, activation, decay, loss, Hs, As):
     L = len(Wb[0])

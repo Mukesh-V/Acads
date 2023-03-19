@@ -40,9 +40,9 @@ def adam(Wb, grads, eta, m, v, beta1, beta2, e, t):
 
 def nadam(Wb, grads, eta, m, v, beta1, beta2, e, t):
     L = len(Wb[0])
-    m_hat = [[[] for t in range(L)], [[] for t in range(L)]]
-    v_hat = [[[] for t in range(L)], [[] for t in range(L)]]
-    m_bar = [[[] for t in range(L)], [[] for t in range(L)]]
+    m_hat = m.copy()
+    v_hat = v.copy()
+    m_bar = m.copy()
     for i in range(2):
         for j in range(L):
             m[i][j] = beta1 * m[i][j] + (1-beta1) * grads[i][j]
@@ -53,5 +53,5 @@ def nadam(Wb, grads, eta, m, v, beta1, beta2, e, t):
 
             m_bar[i][j] = beta1 * m_hat[i][j] + (1-beta1)*grads[i][j]
 
-            Wb[i][j] -= (eta/np.sqrt(v_hat[i][j] + e)) * m_bar[i][j]
+            Wb[i][j] -= (eta/(np.sqrt(v_hat[i][j]) + e)) * m_bar[i][j]
     return Wb, m, v
