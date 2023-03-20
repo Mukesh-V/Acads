@@ -16,33 +16,35 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-wp', '--wandb_project', dest='proj', type=str, help='Project name used to track experiments in Weights & Biases dashboard')
-parser.add_argument('-we', '--wandb_entity', dest='myname', type=str, help='Wandb Entity used to track experiments in the Weights & Biases dashboard.')
+parser.add_argument('-we', '--wandb_entity', dest='name', type=str, help='Wandb Entity used to track experiments in the Weights & Biases dashboard.')
 parser.add_argument('-d', '--dataset', dest='dataset', type=str)
-parser.add_argument('-e', '--epochs', dest='epochs', type=int, help='Number of epochs to train neural network.')
+parser.add_argument('-e', '--epochs', dest='epoch', type=int, help='Number of epochs to train neural network.')
 parser.add_argument('-b', '--batch_size', dest='batch', type=int, help='Batch size used to train neural network.')
 parser.add_argument('-l', '--loss', dest='loss', type=str)
 parser.add_argument('-o', '--optimizer', dest='optimizer', type=str)
 parser.add_argument('-lr', '--learning_rate', dest='eta', type=float, help='Learning rate used to optimize model parameters')
 parser.add_argument('-m', '--momentum', dest='gamma', type=float, help='Momentum used by momentum and nag optimizers.')
 parser.add_argument('-beta', '--beta', dest='beta', type=float, help='Beta to be used by rmsprop, adam and nadam')
-parser.add_argument('-beta2', '--beta2', dest='beta2', type=float, help='Beta to be used by adam and nadam')
+parser.add_argument('-beta2', '--beta2', dest='beta2', type=float, help='Beta2 to be used by adam and nadam')
 parser.add_argument('-eps', '--epsilon', dest='e', type=float)
 parser.add_argument('-w_d', '--weight_decay', dest='decay', type=float)
-parser.add_argument('-w_i', '--weight_init', dest='initializer', type=str)
-parser.add_argument('-l', '--loss', dest='loss', type=str)
+parser.add_argument('-w_i', '--weight_init', dest='init', type=str)
 parser.add_argument('-a', '--activation', dest='activation', type=str)
-parser.add_argument('-hl','--hidden', nargs='+', type=list)
+parser.add_argument('-hl','--hidden', dest='nn', nargs='+', type=int)
 args = parser.parse_args()
+
+project = args.proj if args.proj else "FundDL-AS1"
+experiment = "mnist" if args.dataset == "mnist" else "fashion-mnist"
+
+beta1 = 0.9 if not args.beta else args.beta
+beta2 = 0.999 if not args.beta2 else args.beta2
+e = 1e-8 if not args.e else args.e
+gamma = 0.9 if not args.gamma else args.gamma
 
 def train():  
   wandb.init(project="FundDL-AS1")
   config = wandb.config
   wandb.run.name = "{}_{}_hl{}_bs_{}_ac_{}".format(experiment, config.loss, ", ".join(map(str, config.nn)), config.batch, config.activation)
-
-  beta1 = 0.9 if not args.beta else args.beta
-  beta2 = 0.999 if not args.beta2 else args.beta2
-  e = 1e-8 if not args.e else args.e
-  gamma = 0.9 if not args.gamma else args.gamma
 
   config.nn.insert(0, X_train.shape[0])
   config.nn.append(10)
@@ -114,169 +116,73 @@ def train():
                         class_names=labels)})
   wandb.run.finish()
 
-
-if not args.dataset: 
-  experiment = "fashion-mnist" 
-else: experiment = "mnist"
-
-def fashion():
+if experiment == 'fashion-mnist':
   (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
-
   labels = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat', 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
-  for i in range(10):
-    wandb.init(project="FundDL-AS1")
-    wandb.run.name = "Sample-Images"
-    for j in range(30):
-      if y_train[j] == i:
-        wandb.log({"examples": [wandb.Image(X_train[j], caption=labels[i])]})
-        break
+else: 
+  (X_train, y_train), (X_test, y_test) = mnist.load_data()
+  labels = list(range(10))
 
-  X_train = np.reshape(X_train,(X_train.shape[0],X_train.shape[1]*X_train.shape[2]))/255.0
-  X_test = np.reshape(X_test,(X_test.shape[0],X_test.shape[1]*X_test.shape[2]))/255.0
-  X_test = X_test.T
-      
-  X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=42)
-  X_train = X_train.T
-  X_val = X_val.T
+# for i in range(10):
+#   wandb.init(project="FundDL-AS1")
+#   wandb.run.name = "Sample-Images"
+#   for j in range(30):
+#     if y_train[j] == i:
+#       wandb.log({"examples": [wandb.Image(X_train[j], caption=labels[i])]})
+#       break
 
-  ntrain = X_train.shape[1]
-  nval = X_val.shape[1]
+X_train = np.reshape(X_train,(X_train.shape[0],X_train.shape[1]*X_train.shape[2]))/255.0
+X_test = np.reshape(X_test,(X_test.shape[0],X_test.shape[1]*X_test.shape[2]))/255.0
+X_test = X_test.T
 
-  ce_sweep_config = {
-    "name": "Sweep-CE",
-    "method": "grid",
-    "project": "FundDL-AS1",
-    "metric":{
-        "name":"val_accuracy",
-        "goal":"maximize"
-    },
-    "parameters": {
-          "epoch": {
-              "values": [20]
-          },
-          "nn": {
-              "values":[[64]]
-          },
-          "decay":{
-              "values":[0]
-          },
-          "eta":{
-              "values":[0.001]
-          },
-          "batch": {
-              "values":[32]
-          },  
-          "optimizer": {
-              "values":['sgd']
-          },
-          "init": {
-              "values":['xavier']
-          },
-          "activation":{
-              "values": ['relu']
-          },
-          "loss":{
-              "values": ['cross_entropy']
-          }
-      }
-  }
-  sweep_id = wandb.sweep(ce_sweep_config)
-  wandb.agent(sweep_id, function=train, count=5)
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=42)
+X_train = X_train.T
+X_val = X_val.T
 
-  mse_sweep_config = {
-    "name": "Sweep-CE",
-    "method": "grid",
-    "project": "FundDL-AS1",
-    "metric":{
-        "name":"val_accuracy",
-        "goal":"maximize"
-    },
-    "parameters": {
-          "epoch": {
-              "values": [10]
-          },
-          "nn": {
-              "values":[[256, 128, 64]]
-          },
-          "decay":{
-              "values":[0]
-          },
-          "eta":{
-              "values":[0.0001]
-          },
-          "batch": {
-              "values":[64]
-          },  
-          "optimizer": {
-              "values":['sgd']
-          },
-          "init": {
-              "values":['xavier']
-          },
-          "activation":{
-              "values": ['relu']
-          },
-          "loss":{
-              "values": ['mse']
-          }
-      }
-  }
-  sweep_id = wandb.sweep(mse_sweep_config)
-  wandb.agent(sweep_id, function=train, count=1)
+ntrain = X_train.shape[1]
+nval = X_val.shape[1]
 
-# (X_train, y_train), (X_test, y_test) = mnist.load_data()
-
-# X_train = np.reshape(X_train,(X_train.shape[0],X_train.shape[1]*X_train.shape[2]))/255.0
-# X_test = np.reshape(X_test,(X_test.shape[0],X_test.shape[1]*X_test.shape[2]))/255.0
-# X_test = X_test.T
-
-# X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=42)
-# X_train = X_train.T
-# X_val = X_val.T
-
-# labels = list(range(10))
-# ntrain = X_train.shape[1]
-# nval = X_val.shape[1]
-
-# experiment = "mnist"
-
-# mnist_ce_sweep_config = {
-#   "name": "MNIST-Sweep-CE",
-#   "method": "grid",
-#   "project": "FundDL-AS1",
-#   "metric":{
-#       "name":"val_accuracy",
-#       "goal":"maximize"
-#   },
-#   "parameters": {
-#         "epoch": {
-#             "values": [10]
-#         },
-#         "nn": {
-#             "values":[[128, 64], [64, 32], [64]]
-#         },
-#         "decay":{
-#             "values":[0, 0.0005]
-#         },
-#         "eta":{
-#             "values":[0.001, 0.0001]
-#         },
-#         "batch": {
-#             "values":[64, 128]
-#         },  
-#         "optimizer": {
-#             "values":['sgd', 'momentum']
-#         },
-#         "init": {
-#             "values":['xavier']
-#         },
-#         "activation":{
-#             "values": ['relu', 'tanh']
-#         },
-#         "loss":{
-#             "values": ['cross_entropy']
-#         }
-#     }
-# }
-# sweep_id = wandb.sweep(mnist_ce_sweep_config)
-# wandb.agent(sweep_id, function=train, count=7)
+sweep_config = {
+  "name": "Sweep-CE",
+  "method": "grid",
+  "project": "FundDL-AS1",
+  "metric":{
+      "name":"val_accuracy",
+      "goal":"maximize"
+  },
+  "parameters": {
+        "epoch": {
+            "values": [20]
+        },
+        "nn": {
+            "values":[[64]]
+        },
+        "decay":{
+            "values":[0]
+        },
+        "eta":{
+            "values":[0.001]
+        },
+        "batch": {
+            "values":[32]
+        },  
+        "optimizer": {
+            "values":['sgd']
+        },
+        "init": {
+            "values":['xavier']
+        },
+        "activation":{
+            "values": ['relu']
+        },
+        "loss":{
+            "values": ['cross_entropy']
+        }
+    }
+}
+args = vars(args)
+for param in ['epoch', 'nn', 'decay', 'eta', 'batch', 'optimizer', 'init', 'activation', 'loss']:
+  if args[param]:
+    sweep_config['parameters'][param]['values'] = [args[param]]
+sweep_id = wandb.sweep(sweep_config)
+wandb.agent(sweep_id, function=train, count=1)
