@@ -1,5 +1,5 @@
 from torch.nn import Sequential, Conv2d, ReLU, BatchNorm2d, MaxPool2d, Flatten, Dropout, Linear, LogSoftmax, CrossEntropyLoss
-from torch.optim import Adam
+from torch.optim import Adam, RMSprop
 from torchmetrics.functional import accuracy
 import torch
 import pytorch_lightning as pl
@@ -45,7 +45,11 @@ class CNN(pl.LightningModule):
             LogSoftmax()
         )
 
-        self.save_hyperparameters()
+        eta = config.lr
+        if config.optim == 'adam':
+            self.optim = Adam(self.parameters(), lr=eta)
+        if config.optim == 'rmsprop':
+            self.optim = RMSprop(self.parameters(), lr=eta)
 
     def forward(self, x):
         features = self.conv(x)
@@ -53,7 +57,7 @@ class CNN(pl.LightningModule):
         return y_hat
     
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=0.001)
+        return self.optim
     
     def training_step(self, batch, i):
         _, loss, acc = self._get_preds_loss_accuracy(batch)

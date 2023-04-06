@@ -7,7 +7,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 import wandb
 
-import torch
 from model import CNN
 import pytorch_lightning as pl
 
@@ -27,12 +26,11 @@ valloader = DataLoader(validation_dataset, 32)
 testloader = DataLoader(testdata, 32)
 
 def train():
-    wandb.init(project="FundDL-AS2")
+    wandb_logger = WandbLogger(log_model="all", project="FundDL-AS2")
     config = wandb.config
-    wandb.run.name = "nf_{}-{}x_f_{}_{}_{}_fc_{}_dr_{}".format(config.nf, config.org, config.filter, config.activation, config.batch_norm, config.dense, config.drop)
+    wandb.run.name = "nf_{}-{}x_f_{}_{}_{}_fc_{}_dr_{}_lr_{}_{}".format(config.nf, config.org, config.filter, config.activation, config.batch_norm, config.dense, config.drop, config.lr, config.optim)
     model = CNN(wandb.config)
     checkpoint_callback = ModelCheckpoint(monitor="val_accuracy", mode="max")
-    wandb_logger = WandbLogger(log_model="all")
     trainer = pl.Trainer(max_epochs=config.epochs, precision=16, logger=wandb_logger, callbacks=[checkpoint_callback])
     trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
     trainer.test(model=model, dataloaders=testloader)
@@ -48,16 +46,16 @@ sweep_config = {
   },
   "parameters": {
         "epochs": {
-            "values": [10]
+            "values": [15]
         },
         "nf": {
-            "values": [32, 64]
+            "values": [8, 16, 32]
         },
         "org":{
-            "values": [1, 2]
+            "values": [1.5, 2]
         },
         "filter":{
-            "values": [2, 3]
+            "values": [3, 2]
         },
         "activation": {
             "values": ['relu']
@@ -66,10 +64,16 @@ sweep_config = {
             "values": [True, False]
         },
         "drop":{
-            "values": [0.2, 0.3]
+            "values": [0.3, 0.4]
         },
         "dense":{
             "values": [64]
+        },
+        "lr": {
+            "values": [0.005, 0.01]
+        },
+        "optim":  {
+            "values": ['adam']
         }
     }
 }
