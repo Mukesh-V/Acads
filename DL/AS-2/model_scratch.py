@@ -1,10 +1,10 @@
+import torch
 from torch.nn import Sequential, Conv2d, ReLU, BatchNorm2d, MaxPool2d, Flatten, Dropout, Linear, LogSoftmax, CrossEntropyLoss
 from torch.optim import Adam, RMSprop
 from torchmetrics.functional import accuracy
-import torch
 import pytorch_lightning as pl
 
-class CNN(pl.LightningModule):
+class ScratchCNN(pl.LightningModule):
     def get_output_shape(self, model, image_dim):
       return model(torch.rand(*(image_dim))).data.shape
 
