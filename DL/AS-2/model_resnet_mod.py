@@ -36,7 +36,6 @@ class ModdedResnet50(pl.LightningModule):
     
     def training_step(self, batch, i):
         _, loss, acc = self._get_preds_loss_accuracy(batch)
-
         self.log('train_loss', loss)
         self.log('train_accuracy', acc)
         return loss

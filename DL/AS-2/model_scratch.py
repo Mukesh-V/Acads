@@ -1,5 +1,7 @@
 import torch
-from torch.nn import Sequential, Conv2d, ReLU, BatchNorm2d, MaxPool2d, Flatten, Dropout, Linear, LogSoftmax, CrossEntropyLoss
+from torch.nn import Sequential, Conv2d, BatchNorm2d, MaxPool2d, Flatten, Dropout, Linear
+from torch.nn import ReLU, GELU, SiLU, Mish
+from torch.nn import LogSoftmax, CrossEntropyLoss
 from torch.optim import Adam, RMSprop
 from torchmetrics.functional import accuracy
 import pytorch_lightning as pl
@@ -12,6 +14,12 @@ class ScratchCNN(pl.LightningModule):
         super().__init__()
         if config.activation == 'relu':
             self.activ = ReLU()
+        elif config.activation == 'gelu':
+            self.activ = GELU()
+        elif config.activation == 'silu':
+            self.activ = SiLU()
+        elif config.activation == 'mish':
+            self.activ = Mish()
 
         self.criterion = CrossEntropyLoss()
 
@@ -40,7 +48,6 @@ class ScratchCNN(pl.LightningModule):
         self.dense = Sequential(
             Linear(inp_dense, config.dense),
             ReLU(),
-            Dropout(config.drop),
             Linear(config.dense, 10),
             LogSoftmax()
         )
@@ -61,7 +68,6 @@ class ScratchCNN(pl.LightningModule):
     
     def training_step(self, batch, i):
         _, loss, acc = self._get_preds_loss_accuracy(batch)
-
         self.log('train_loss', loss)
         self.log('train_accuracy', acc)
         return loss

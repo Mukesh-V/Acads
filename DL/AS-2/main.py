@@ -21,28 +21,28 @@ sweep_config = {
   },
   "parameters": {
         "model": {
-            "values": ['resnet']
+            "values": ['scratch']
         },
         "epochs": {
             "values": [10]
         },
         "nf": {
-            "values": [8, 16, 32]
+            "values": [16]
         },
         "org":{
-            "values": [1.5, 2]
+            "values": [1]
         },
         "filter":{
-            "values": [3, 2]
+            "values": [2]
         },
         "activation": {
-            "values": ['relu']
+            "values": ['mish']
         },
         "batch_norm": {
-            "values": [True, False]
+            "values": [True]
         },
         "drop":{
-            "values": [0.3, 0.4]
+            "values": [0.3]
         },
         "dense":{
             "values": [64]
@@ -63,7 +63,7 @@ mode = sweep_config['parameters']['model']['values'][0]
 size = 256 if mode == 'scratch' else 224
 
 data_transform = transforms.Compose([
-  transforms.RandomCrop(size=256, pad_if_needed=True),
+  transforms.RandomCrop(size=size, pad_if_needed=True),
   transforms.ToTensor()
 ])
 data = ImageFolder(root='/content/inaturalist_12K/train', transform=data_transform)
@@ -93,4 +93,4 @@ def train():
     wandb.run.finish()
 
 sweep_id = wandb.sweep(sweep_config)
-wandb.agent(sweep_id, function=train, count=1)
+wandb.agent(sweep_id, function=train, count=4)
