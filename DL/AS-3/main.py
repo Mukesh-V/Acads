@@ -8,13 +8,14 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 import wandb
+wandb.login()
 
 sweep_config = {
   "name": "Sweep-RNN",
   "method": "grid",
   "project": "FundDL-AS3",
   "metric":{
-      "name":"val_accuracy",
+      "name":"val_char_acc",
       "goal":"maximize"
   },
   "parameters": {
@@ -22,25 +23,22 @@ sweep_config = {
             "values": ['no-attention']
         },
         "unit": {
-            "values": ['gru']
+            "values": ['rnn', 'gru']
         },
         "epochs": {
-            "values": [20]
+            "values": [10]
         },
         "embedding": {
-            "values": [8]
+            "values": [16, 32]
         },
         "hidden": {
-            "values": [8]
+            "values": [32, 64]
         },
         "layers": {
-            "values": [1]
+            "values": [1, 2, 3]
         },
         "drop": {
             "values": [0.05]
-        },
-        "optim":  {
-            "values": ['adam']
         }
     }
 }
@@ -54,13 +52,12 @@ def train():
     wandb_logger = WandbLogger(log_model="all", project="FundDL-AS3")
     config = wandb.config
     if config.model == 'no-attention':
-        wandb.run.name = "no-att_{}-{}x_{}-{}_rdr_{}_{}_{}".format(config.unit, config.layers, config.embedding, config.hidden, config.drop, config.optim, config.epochs)
+        wandb.run.name = "no-att_{}-{}x_{}-{}_rdr_{}_{}".format(config.unit, config.layers, config.embedding, config.hidden, config.drop, config.epochs)
         model = Transliterator(wandb.config, trainloader.dataset.maps)
 
     checkpoint_callback = ModelCheckpoint(monitor="val_seq_acc", mode="max")
     trainer = pl.Trainer(max_epochs=config.epochs, precision='bf16-mixed', logger=wandb_logger, callbacks=[checkpoint_callback])
     trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
-    trainer.test(model=model, dataloaders=testloader)
     wandb.run.finish()
 
 sweep_id = wandb.sweep(sweep_config)

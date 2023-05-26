@@ -1,10 +1,12 @@
 import torch
+import random
 import numpy as np
 from torch.nn import Embedding, RNN, GRU, LSTM, Linear
-from torch.nn import LogSoftmax, NLLLoss, Softmax
-from torch.optim import Adam, RMSprop
+from torch.nn import Softmax, CrossEntropyLoss
+from torch.optim import Adam
 import pytorch_lightning as pl
 
+teacher_force = 0.5
 class Transliterator(pl.LightningModule):
     def __init__(self, config, maps):
         super().__init__()
@@ -25,48 +27,33 @@ class Transliterator(pl.LightningModule):
         self.decoder = self.unit(input_size=config.embedding, hidden_size=config.hidden, num_layers=config.layers, dropout=config.drop, batch_first=True)
         self.fc = Linear(config.hidden, len(self.maps['oc2i']))
 
-        self.loss = NLLLoss()
-        
-        eta = 0.01
-        if config.optim == 'adam':
-            self.optim = Adam(self.parameters(), lr=eta)
-        if config.optim == 'rmsprop':
-            self.optim = RMSprop(self.parameters(), lr=eta)
+        self.loss = CrossEntropyLoss()
 
-    def forward(self, x, y):
+    def forward(self, x, y=None):
         e_embed = self.enc_embedding(x)
         _, e_hidden = self.encoder(e_embed)
 
-        d_embed = self.dec_embedding(y)
-        d_output, _ = self.decoder(d_embed, e_hidden)
-        output = LogSoftmax(dim=2)(self.fc(d_output))
-        return output
-    
-    def infer(self, x):
-        e_embed = self.enc_embedding(x.unsqueeze(0))
-        _, e_hidden = self.encoder(e_embed)
+        d_input = np.zeros((x.shape[0], 1), dtype='int64')
+        d_input[:, 0] = self.maps['oc2i']['\t']
+        d_input = torch.from_numpy(d_input)
 
-        flag = False
-        decoded_word, decoded_char = "", "\t"
-        d_hidden = e_hidden
-        while not flag:
-            target = np.array([[self.maps['oc2i'][decoded_char]]], dtype='int64')
-            target = torch.from_numpy(target)
-
-            d_embed = self.dec_embedding(target)
+        outputs, d_hidden = [], e_hidden
+        for i in range(self.maps['oseq']):
+            if random.random() > teacher_force and y is not None: 
+                d_input = y[:, i].unsqueeze(1)
+            d_embed = self.dec_embedding(d_input)
             d_output, d_hidden = self.decoder(d_embed, d_hidden)
-            fc_output = LogSoftmax(dim=2)(self.fc(d_output))
+            fc_output = self.fc(d_output)
 
-            output = torch.argmax(fc_output, dim=2)
-            decoded_char = self.maps['i2oc'][output.item()]
-            decoded_word += decoded_char
-            if decoded_char == '\n' or len(decoded_word) > 30:
-                flag = True
-
-        return decoded_word
+            d_input = torch.argmax(Softmax(dim=2)(fc_output), dim=2)
+            outputs.append(fc_output)
+        
+        op = torch.stack(outputs, dim=1)
+        return torch.squeeze(op)
     
     def configure_optimizers(self):
-        return self.optim
+        eta = 0.01
+        return Adam(self.parameters(), lr=eta)
     
     def training_step(self, batch, i):
         x, y = batch
@@ -82,27 +69,21 @@ class Transliterator(pl.LightningModule):
         self.log('val_seq_acc', sacc, prog_bar=True)
         return cacc, sacc
     
-    def test_step(self, batch, i):
-        cacc, sacc = self._get_accuracy(batch)
-        self.log('test_char_acc', cacc, prog_bar=True)
-        self.log('test_seq_acc', sacc, prog_bar=True)
-        return cacc, sacc
-    
     def _get_accuracy(self, batch):
         x, y = batch
+        preds = torch.argmax(Softmax(dim=2)(self(x)), dim=2)
 
         char_acc, seq_acc = 0.0, 0.0
-        for i, truth in enumerate(y):
+        for pred, truth in zip(preds, y):
             truth_word = ''.join([self.maps['i2oc'][i.item()] for i in truth]).replace('\t', '').replace('\n', '').replace(' ', '')
-            pred_word = self.infer(x[i]).replace('\t', '').replace('\n', '').replace(' ', '')
+            pred_word = ''.join([self.maps['i2oc'][i.item()] for i in pred]).replace('\t', '').replace('\n', '').replace(' ', '')
             
             correct_chars = 0
             for pred_token, truth_token in zip(pred_word, truth_word):
                 if pred_token == truth_token: correct_chars += 1
             char_acc += correct_chars/len(truth_word)
 
-            if truth_word == pred_word: 
-                seq_acc += 1 
+            if truth_word == pred_word: seq_acc += 1 
 
         char_acc /= len(x)
         seq_acc /= len(x)
