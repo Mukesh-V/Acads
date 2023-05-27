@@ -1,11 +1,13 @@
 import torch
 import random
 import numpy as np
+import Levenshtein
 from torch.nn import Embedding, RNN, GRU, LSTM, Linear
 from torch.nn import Softmax, CrossEntropyLoss
 from torch.optim import Adam
 import pytorch_lightning as pl
 
+eta = 0.01
 teacher_force = 0.5
 class Transliterator(pl.LightningModule):
     def __init__(self, config, maps):
@@ -52,7 +54,6 @@ class Transliterator(pl.LightningModule):
         return torch.squeeze(op)
     
     def configure_optimizers(self):
-        eta = 0.01
         return Adam(self.parameters(), lr=eta)
     
     def training_step(self, batch, i):
@@ -83,7 +84,8 @@ class Transliterator(pl.LightningModule):
                 if pred_token == truth_token: correct_chars += 1
             char_acc += correct_chars/len(truth_word)
 
-            if truth_word == pred_word: seq_acc += 1 
+            distance = Levenshtein.distance(pred_word, truth_word)
+            seq_acc += (1 - distance/(max(len(truth_word), len(pred_word))))
 
         char_acc /= len(x)
         seq_acc /= len(x)

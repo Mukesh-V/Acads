@@ -15,7 +15,7 @@ sweep_config = {
   "method": "grid",
   "project": "FundDL-AS3",
   "metric":{
-      "name":"val_char_acc",
+      "name":"val_seq_acc",
       "goal":"maximize"
   },
   "parameters": {
@@ -23,19 +23,19 @@ sweep_config = {
             "values": ['no-attention']
         },
         "unit": {
-            "values": ['rnn', 'gru']
+            "values": ['rnn']
         },
         "epochs": {
-            "values": [10]
+            "values": [20]
         },
         "embedding": {
-            "values": [16, 32]
+            "values": [8]
         },
         "hidden": {
-            "values": [32, 64]
+            "values": [8]
         },
         "layers": {
-            "values": [1, 2, 3]
+            "values": [3]
         },
         "drop": {
             "values": [0.05]
@@ -44,21 +44,20 @@ sweep_config = {
 }
 
 batch_size = 512
-trainloader = DataLoader(TransliterationDataset(), batch_size, True, num_workers=8)
-valloader = DataLoader(TransliterationDataset('valid'), batch_size, num_workers=8)
-testloader = DataLoader(TransliterationDataset('test'), batch_size, num_workers=8)
+trainloader = DataLoader(TransliterationDataset(), batch_size, True, num_workers=2)
+valloader = DataLoader(TransliterationDataset('valid'), batch_size, num_workers=2)
 
 def train():
     wandb_logger = WandbLogger(log_model="all", project="FundDL-AS3")
     config = wandb.config
     if config.model == 'no-attention':
-        wandb.run.name = "no-att_{}-{}x_{}-{}_rdr_{}_{}".format(config.unit, config.layers, config.embedding, config.hidden, config.drop, config.epochs)
+        wandb.run.name = "no-att-lev_{}-{}x_{}-{}_rdr_{}_{}".format(config.unit, config.layers, config.embedding, config.hidden, config.drop, config.epochs)
         model = Transliterator(wandb.config, trainloader.dataset.maps)
 
     checkpoint_callback = ModelCheckpoint(monitor="val_seq_acc", mode="max")
-    trainer = pl.Trainer(max_epochs=config.epochs, precision='bf16-mixed', logger=wandb_logger, callbacks=[checkpoint_callback])
+    trainer = pl.Trainer(max_epochs=config.epochs, precision=16, logger=wandb_logger, callbacks=[checkpoint_callback])
     trainer.fit(model, train_dataloaders=trainloader, val_dataloaders=valloader)
     wandb.run.finish()
 
 sweep_id = wandb.sweep(sweep_config)
-wandb.agent(sweep_id, function=train, count=1)
+wandb.agent(sweep_id, function=train, count=10)
