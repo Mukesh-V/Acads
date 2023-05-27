@@ -16,15 +16,19 @@ class Transliterator(pl.LightningModule):
 
         if config.unit == 'rnn':
             self.unit = RNN
-        elif config.unit == 'gru':
-            self.unit = GRU
         else:
-            self.unit = LSTM
+            self.unit = GRU
 
         self.maps = maps
 
         self.enc_embedding = Embedding(len(self.maps['ic2i']), config.embedding)
-        self.encoder = self.unit(input_size=config.embedding, hidden_size=config.hidden, num_layers=config.layers, dropout=config.drop, batch_first=True)
+        self.encoder = self.unit(input_size=config.embedding, hidden_size=config.hidden, num_layers=config.layers, dropout=config.drop, bidirectional=config.bi, batch_first=True)
+
+        self.enc_depth = config.layers * 2 if config.bi else config.layers
+        self.enc_depth *= config.hidden
+        self.dec_depth = config.layers * config.hidden
+        self.bridge = Linear(self.enc_depth, self.dec_depth)
+
         self.dec_embedding = Embedding(len(self.maps['oc2i']), config.embedding)
         self.decoder = self.unit(input_size=config.embedding, hidden_size=config.hidden, num_layers=config.layers, dropout=config.drop, batch_first=True)
         self.fc = Linear(config.hidden, len(self.maps['oc2i']))
@@ -35,11 +39,16 @@ class Transliterator(pl.LightningModule):
         e_embed = self.enc_embedding(x)
         _, e_hidden = self.encoder(e_embed)
 
+        e_hidden = e_hidden.view(-1, 1, self.enc_depth)
+        bridge_output = self.bridge(e_hidden)
+        bridge_output = bridge_output.permute(1, 0, 2).contiguous().view(self.config.layers, -1, self.config.hidden)
+
         d_input = np.zeros((x.shape[0], 1), dtype='int64')
         d_input[:, 0] = self.maps['oc2i']['\t']
         d_input = torch.from_numpy(d_input)
 
-        outputs, d_hidden = [], e_hidden
+        outputs = []
+        d_hidden = bridge_output
         for i in range(self.maps['oseq']):
             if random.random() > teacher_force and y is not None: 
                 d_input = y[:, i].unsqueeze(1)
