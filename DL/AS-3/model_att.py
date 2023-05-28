@@ -25,7 +25,7 @@ class AttentionDecoder(pl.LightningModule):
         self.energy = Linear(config.hidden, 1)
 
         self.embedding = Embedding(len(maps['oc2i']), config.embedding)
-        self.decoder = self.unit(config.hidden*2, config.hidden, num_layers=config.layers, dropout=config.drop, batch_first=True)
+        self.decoder = self.unit(config.embedding + config.hidden, config.hidden, num_layers=config.layers, dropout=config.drop, batch_first=True)
         self.fc = Linear(config.hidden, len(maps['oc2i']))
 
     def forward(self, d_input, d_hidden, e_output):
